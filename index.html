@@ -178,6 +178,28 @@
             listenToRoom();
         }
 
+function withTimeout(promise, seconds = 10) {
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+            reject(new Error(
+                'Firebase request timed out after ' +
+                seconds + ' seconds.'
+            ));
+        }, seconds * 1000);
+
+        promise.then(
+            value => {
+                clearTimeout(timer);
+                resolve(value);
+            },
+            error => {
+                clearTimeout(timer);
+                reject(error);
+            }
+        );
+    });
+}
+
         
 async function joinRoom() {
     myName = document.getElementById('nicknameInput').value.trim();
