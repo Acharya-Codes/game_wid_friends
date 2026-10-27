@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Social Gamebox - Online Roles</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase SDKs for real-time room syncing -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        argonDark: '#172b4d',
+                        argonBlue: '#5e72e4',
+                        argonPrimary: '#11cdef',
+                        argonBg: '#f8f9fe'
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,600,700" rel="stylesheet">
+</head>
+<body class="bg-argonBg font-['Open_Sans'] text-gray-700 min-h-screen flex flex-col">
+
+    <!-- Navbar -->
+    <nav class="bg-argonDark text-white shadow-md py-4 px-6 flex justify-between items-center">
+        <span class="text-xl font-bold bg-gradient-to-r from-argonPrimary to-argonBlue bg-clip-text text-transparent">Social Gamebox</span>
+        <span id="roomBadge" class="text-xs bg-argonBlue px-3 py-1 rounded-full hidden">Room: <span id="displayRoomCode"></span></span>
+    </nav>
+
+    <!-- Main Content Container -->
+    <main class="flex-grow container mx-auto max-w-lg px-4 py-8 flex flex-col justify-center">
+
+        <!-- HOME SCREEN: Create or Join Room -->
+        <div id="homeScreen" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center">
+            <h1 class="text-2xl font-bold text-argonDark mb-2">Mafia & Murder Roles</h1>
+            <p class="text-gray-500 text-sm mb-6">Play remotely. Everyone sees their secret role on their own phone!</p>
+            
+            <input type="text" id="nicknameInput" placeholder="Enter Your Nickname" class="w-full border border-gray-200 rounded-lg p-3 mb-4 focus:outline-none focus:border-argonBlue text-center font-bold">
+            
+            <button onclick="createRoom()" class="w-full bg-argonBlue text-white py-3 rounded-xl font-bold shadow-lg hover:bg-blue-600 transition mb-3">Create Room (Host)</button>
+            
+            <div class="relative flex py-2 items-center">
+                <div class="flex-grow border-t border-gray-200"></div>
+                <span class="flex-shrink mx-4 text-gray-400 text-xs">OR JOIN A ROOM</span>
+                <div class="flex-grow border-t border-gray-200"></div>
+            </div>
+
+            <div class="flex space-x-2 mt-3">
+                <input type="text" id="joinCodeInput" placeholder="4-Digit Code" class="w-1/2 border border-gray-200 rounded-lg p-3 focus:outline-none focus:border-argonBlue uppercase tracking-widest text-center font-bold">
+                <button onclick="joinRoom()" class="w-1/2 bg-argonDark text-white py-3 rounded-xl font-bold shadow hover:opacity-90 transition">Join Room</button>
+            </div>
+        </div>
+
+        <!-- HOST LOBBY SCREEN -->
+        <div id="hostLobbyScreen" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hidden">
+            <div class="text-center mb-6">
+                <span class="text-xs text-gray-400 uppercase tracking-widest font-bold">Room Code</span>
+                <div id="hostRoomCodeDisplay" class="text-4xl font-extrabold text-argonBlue tracking-widest my-1">----</div>
+                <p class="text-gray-500 text-xs">Share this code with your friends</p>
+            </div>
+
+            <h2 class="font-bold text-argonDark mb-3">Players in Lobby (<span id="playerCount">0</span>)</h2>
+            <div id="lobbyPlayerList" class="flex flex-wrap gap-2 mb-6 min-h-[60px] p-3 bg-argonBg rounded-xl border border-gray-100">
+                <!-- Players list -->
+            </div>
+
+            <h2 class="font-bold text-argonDark mb-2">Select Roles to Include</h2>
+            <div class="grid grid-cols-2 gap-3 mb-6" id="roleCheckboxes">
+                <label class="flex items-center space-x-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50">
+                    <input type="checkbox" value="Mafia" class="w-5 h-5 text-argonBlue rounded" checked>
+                    <span class="font-semibold text-argonDark text-sm">Mafia / Killer</span>
+                </label>
+                <label class="flex items-center space-x-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50">
+                    <input type="checkbox" value="Godfather" class="w-5 h-5 text-argonBlue rounded" checked>
+                    <span class="font-semibold text-argonDark text-sm">Godfather <span class="text-xs text-gray-400 block">(Fools Detective)</span></span>
+                </label>
+                <label class="flex items-center space-x-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50">
+                    <input type="checkbox" value="Detective" class="w-5 h-5 text-argonBlue rounded" checked>
+                    <span class="font-semibold text-argonDark text-sm">Detective</span>
+                </label>
+                <label class="flex items-center space-x-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50">
+                    <input type="checkbox" value="Doctor" class="w-5 h-5 text-argonBlue rounded" checked>
+                    <span class="font-semibold text-argonDark text-sm">Doctor</span>
+                </label>
+                <label class="flex items-center space-x-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50">
+                    <input type="checkbox" value="Judge" class="w-5 h-5 text-argonBlue rounded" checked>
+                    <span class="font-semibold text-argonDark text-sm">Judge <span class="text-xs text-gray-400 block">(Saves from vote)</span></span>
+                </label>
+                <label class="flex items-center space-x-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50">
+                    <input type="checkbox" value="Jester" class="w-5 h-5 text-argonBlue rounded" checked>
+                    <span class="font-semibold text-argonDark text-sm">Jester <span class="text-xs text-gray-400 block">(Wins if voted out)</span></span>
+                </label>
+                <label class="flex items-center space-x-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50 col-span-2">
+                    <input type="checkbox" value="Innocent" class="w-5 h-5 text-argonBlue rounded" checked>
+                    <span class="font-semibold text-argonDark text-sm">Innocent / Citizen</span>
+                </label>
+            </div>
+
+            <button onclick="distributeRoles()" class="w-full bg-argonBlue text-white py-3 rounded-xl font-bold shadow-lg hover:bg-blue-600 transition">Shuffle & Send Roles to Phones</button>
+        </div>
+
+        <!-- PLAYER WAITING SCREEN -->
+        <div id="playerWaitingScreen" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center hidden">
+            <h2 class="text-xl font-bold text-argonDark mb-2">You're in the Lobby! 🎮</h2>
+            <p class="text-gray-500 text-sm mb-6">Waiting for the host (<span id="hostNameDisplay" class="font-bold text-argonBlue"></span>) to shuffle and assign roles...</p>
+            <div class="animate-pulse flex justify-center items-center py-6">
+                <div class="h-3 w-3 bg-argonBlue rounded-full mx-1"></div>
+                <div class="h-3 w-3 bg-argonPrimary rounded-full mx-1"></div>
+                <div class="h-3 w-3 bg-argonDark rounded-full mx-1"></div>
+            </div>
+        </div>
+
+        <!-- SECRET ROLE REVEAL SCREEN (On each player's phone) -->
+        <div id="roleRevealScreen" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center hidden">
+            <span class="text-xs text-gray-400 uppercase tracking-widest font-bold">Your Secret Role</span>
+            <div id="myAssignedRole" class="text-3xl font-extrabold text-argonBlue my-4">---</div>
+            
+            <!-- Dynamic Role Descriptions -->
+            <div id="roleDescription" class="text-xs text-gray-500 bg-argonBg p-3 rounded-xl mb-6"></div>
+
+            <button onclick="location.reload()" class="w-full bg-gray-100 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-200 transition">Back to Home</button>
+        </div>
+
+    </main>
+
+    <!-- Firebase Connection & Game Logic Script -->
+    <script>
+        // Public Firebase Demo Configuration (Free realtime database)
+        const firebaseConfig = {
+            databaseURL: "https://social-gamebox-default-rtdb.firebaseio.com/"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let currentRoomCode = '';
+        let myName = '';
+        let isHost = false;
+
+        const descriptions = {
+            "Mafia": "You are a Mafia member. Work with your team to eliminate innocents at night without getting caught.",
+            "Godfather": "You are the Godfather. You lead the Mafia, but when the Detective investigates you, you register as an Innocent!",
+            "Detective": "You are the Detective. Each night you can inspect someone to see if they are suspicious (Note: Godfather fools you!).",
+            "Doctor": "You are the Doctor. Each night you can choose one person to protect from being eliminated.",
+            "Judge": "You are the Judge. If you choose someone during the night/discussion, they are saved and cannot be voted out this round.",
+            "Jester": "You are the Jester. Your goal is to trick everyone into voting you out during the day so you win solo!",
+            "Innocent": "You are an innocent citizen. Figure out who the Mafia is during daytime discussions and survive!"
+        };
+
+        function createRoom() {
+            myName = document.getElementById('nicknameInput').value.trim();
+            if (!myName) {
+                alert('Please enter your nickname first!');
+                return;
+            }
+
+            currentRoomCode = Math.floor(1000 + Math.random() * 9000).toString();
+            isHost = true;
+
+            db.ref('rooms/' + currentRoomCode).set({
+                host: myName,
+                status: 'waiting',
+                players: {
+                    [myName]: { name: myName, role: 'Waiting' }
+                }
+            });
+
+            document.getElementById('homeScreen').classList.add('hidden');
+            document.getElementById('hostLobbyScreen').classList.remove('hidden');
+            document.getElementById('roomBadge').classList.remove('hidden');
+            document.getElementById('displayRoomCode').innerText = currentRoomCode;
+            document.getElementById('hostRoomCodeDisplay').innerText = currentRoomCode;
+
+            listenToRoom();
+        }
+
+        
+async function joinRoom() {
+    myName = document.getElementById('nicknameInput').value.trim();
+
+    currentRoomCode = document.getElementById('joinCodeInput')
+        .value.trim();
+
+    // Validate input
+    if (!myName || !currentRoomCode) {
+        alert('Please enter both your nickname and a room code!');
+        return;
+    }
+
+    if (!/^\d{4}$/.test(currentRoomCode)) {
+        alert('Room code must be exactly 4 digits.');
+        return;
+    }
+
+    // Firebase does not allow these characters in database keys
+    if (/[.#$\[\]\/]/.test(myName)) {
+        alert('Please use a nickname without . # $ [ ] or /.');
+        return;
+    }
+
+    const joinButton = document.querySelector(
+        'button[onclick="joinRoom()"]'
+    );
+
+    joinButton.disabled = true;
+    joinButton.textContent = 'Joining...';
+
+    try {
+        const roomRef = db.ref('rooms/' + currentRoomCode);
+        const snapshot = await roomRef.once('value');
+
+        if (!snapshot.exists()) {
+            alert('Room not found! Check the code and try again.');
+            return;
+        }
+
+        const roomData = snapshot.val();
+
+        if (roomData.status !== 'waiting') {
+            alert('This room has already started or is no longer available.');
+            return;
+        }
+
+        const playerRef = roomRef.child(
+            'players/' + myName
+        );
+
+        await playerRef.set({
+            name: myName,
+            role: 'Waiting'
+        });
+
+        // Only show the lobby after Firebase confirms the write
+        document.getElementById('homeScreen')
+            .classList.add('hidden');
+
+        document.getElementById('playerWaitingScreen')
+            .classList.remove('hidden');
+
+        document.getElementById('roomBadge')
+            .classList.remove('hidden');
+
+        document.getElementById('displayRoomCode')
+            .innerText = currentRoomCode;
+
+        document.getElementById('hostNameDisplay')
+            .innerText = roomData.host || 'Host';
+
+        listenToRoom();
+
+    } catch (error) {
+        console.error('Join room failed:', error);
+
+        alert(
+            'Could not join the room.\n\n' +
+            'Error: ' + (error.code || error.message) +
+            '\n\nOpen the browser console (F12) for details.'
+        );
+
+    } finally {
+        joinButton.disabled = false;
+        joinButton.textContent = 'Join Room';
+    }
+}
+
+
+        function listenToRoom() {
+            db.ref('rooms/' + currentRoomCode).on('value', snapshot => {
+                const data = snapshot.val();
+                if (!data) return;
+
+                if (isHost && data.players) {
+                    const playersArray = Object.values(data.players);
+                    document.getElementById('playerCount').innerText = playersArray.length;
+                    document.getElementById('lobbyPlayerList').innerHTML = playersArray.map(p => `
+                        <span class="bg-argonBg border border-gray-200 text-argonDark px-3 py-1.5 rounded-lg text-sm font-semibold">${p.name}</span>
+                    `).join('');
+                }
+
+                if (data.status === 'playing' && data.players && data.players[myName]) {
+                    const myRole = data.players[myName].role;
+                    document.getElementById('hostLobbyScreen').classList.add('hidden');
+                    document.getElementById('playerWaitingScreen').classList.add('hidden');
+                    document.getElementById('roleRevealScreen').classList.remove('hidden');
+                    document.getElementById('myAssignedRole').innerText = myRole;
+                    document.getElementById('roleDescription').innerText = descriptions[myRole] || "Play your role well!";
+                }
+            });
+        }
+
+        function distributeRoles() {
+            const checkboxes = document.querySelectorAll('#roleCheckboxes input:checked');
+            let pool = [];
+            checkboxes.forEach(cb => pool.push(cb.value));
+
+            db.ref('rooms/' + currentRoomCode + '/players').once('value', snapshot => {
+                const playersObj = snapshot.val();
+                const playerNames = Object.keys(playersObj);
+
+                if (playerNames.length < 3) {
+                    alert('You need at least 3 players in the room to start!');
+                    return;
+                }
+
+                if (pool.length === 0) {
+                    alert('Please select at least one role!');
+                    return;
+                }
+
+                let assignedRoles = playerNames.map((_, i) => pool[i % pool.length]);
+                assignedRoles.sort(() => Math.random() - 0.5);
+
+                let updates = {};
+                playerNames.forEach((name, i) => {
+                    updates[name + '/role'] = assignedRoles[i];
+                });
+
+                db.ref('rooms/' + currentRoomCode + '/players').update(updates);
+                db.ref('rooms/' + currentRoomCode).update({ status: 'playing' });
+            });
+        }
+    </script>
+</body>
+</html>
