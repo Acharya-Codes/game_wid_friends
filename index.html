@@ -211,7 +211,14 @@ async function joinRoom() {
 
     try {
         const roomRef = db.ref('rooms/' + currentRoomCode);
-        const snapshot = await roomRef.once('value');
+        console.log('Checking room:', currentRoomCode);
+
+         const snapshot = await withTimeout(
+            roomRef.once('value'),
+            10
+        );
+
+console.log('Room lookup completed:', snapshot.exists());
 
         if (!snapshot.exists()) {
             alert('Room not found! Check the code and try again.');
