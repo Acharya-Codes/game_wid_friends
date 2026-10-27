@@ -201,15 +201,16 @@ function withTimeout(promise, seconds = 10) {
 }
 
         
+    
 async function joinRoom() {
-    myName = document.getElementById('nicknameInput').value.trim();
+    const myNameInput = document.getElementById('nicknameInput');
+    const codeInput = document.getElementById('joinCodeInput');
 
-    currentRoomCode = document.getElementById('joinCodeInput')
-        .value.trim();
+    myName = myNameInput.value.trim();
+    currentRoomCode = codeInput.value.trim();
 
-    // Validate input
     if (!myName || !currentRoomCode) {
-        alert('Please enter both your nickname and a room code!');
+        alert('Please enter both your nickname and room code!');
         return;
     }
 
@@ -218,83 +219,70 @@ async function joinRoom() {
         return;
     }
 
-    // Firebase does not allow these characters in database keys
-    if (/[.#$\[\]\/]/.test(myName)) {
-        alert('Please use a nickname without . # $ [ ] or /.');
-        return;
-    }
-
-    const joinButton = document.querySelector(
+    const button = document.querySelector(
         'button[onclick="joinRoom()"]'
     );
 
-    joinButton.disabled = true;
-    joinButton.textContent = 'Joining...';
+    button.disabled = true;
+    button.textContent = 'Joining...';
 
     try {
+        console.log('[Join] Checking room:', currentRoomCode);
+
         const roomRef = db.ref('rooms/' + currentRoomCode);
-        console.log('Checking room:', currentRoomCode);
 
-         const snapshot = await withTimeout(
+        const snapshot = await Promise.race([
             roomRef.once('value'),
-            10
-        );
-
-console.log('Room lookup completed:', snapshot.exists());
+            new Promise((_, reject) =>
+                setTimeout(
+                    () => reject(new Error(
+                        'Firebase lookup timed out. Check the database URL.'
+                    )),
+                    10000
+                )
+            )
+        ]);
 
         if (!snapshot.exists()) {
-            alert('Room not found! Check the code and try again.');
+            alert('Room not found! Create a room first and check its code.');
             return;
         }
 
-        const roomData = snapshot.val();
+        const room = snapshot.val();
 
-        if (roomData.status !== 'waiting') {
-            alert('This room has already started or is no longer available.');
+        if (room.status !== 'waiting') {
+            alert('This room has already started.');
             return;
         }
 
-        const playerRef = roomRef.child(
-            'players/' + myName
-        );
+        console.log('[Join] Adding player...');
 
-        await playerRef.set({
+        await roomRef.child('players/' + myName).set({
             name: myName,
             role: 'Waiting'
         });
 
-        // Only show the lobby after Firebase confirms the write
-        document.getElementById('homeScreen')
-            .classList.add('hidden');
+        isHost = false;
 
-        document.getElementById('playerWaitingScreen')
-            .classList.remove('hidden');
-
-        document.getElementById('roomBadge')
-            .classList.remove('hidden');
-
-        document.getElementById('displayRoomCode')
-            .innerText = currentRoomCode;
-
-        document.getElementById('hostNameDisplay')
-            .innerText = roomData.host || 'Host';
+        document.getElementById('homeScreen').classList.add('hidden');
+        document.getElementById('playerWaitingScreen').classList.remove('hidden');
+        document.getElementById('roomBadge').classList.remove('hidden');
+        document.getElementById('displayRoomCode').innerText = currentRoomCode;
+        document.getElementById('hostNameDisplay').innerText = room.host || 'Host';
 
         listenToRoom();
 
+        console.log('[Join] Successfully joined room!');
+
     } catch (error) {
-        console.error('Join room failed:', error);
-
-        alert(
-            'Could not join the room.\n\n' +
-            'Error: ' + (error.code || error.message) +
-            '\n\nOpen the browser console (F12) for details.'
-        );
-
+        console.error('[Join] Error:', error);
+        alert('Unable to join: ' + error.message);
     } finally {
-        joinButton.disabled = false;
-        joinButton.textContent = 'Join Room';
+        button.disabled = false;
+        button.textContent = 'Join Room';
     }
 }
+
 
 
         function listenToRoom() {
